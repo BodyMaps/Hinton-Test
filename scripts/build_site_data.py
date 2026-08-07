@@ -11,7 +11,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SITE = HERE.parent
-ROOT = SITE.parents[1]
+ROOT = SITE.parent / "radworld_repo"
 RESULTS = ROOT / "docs/results"
 OUT = SITE / "public/data/benchmark.json"
 FULL_FINDING_INVENTORY = ROOT / "world_model_benchmark/harm_tier_proposal.csv"
@@ -186,11 +186,9 @@ def main() -> None:
             }
         )
 
-    # M3D-RAD is the only native-volume generative model with a completed
-    # organ-FOV run. The other three native-volume models completed contrast
-    # phase, but their organ-FOV jobs were cancelled before inference. Keep
-    # that distinction explicit rather than silently dropping the finished
-    # M3D-RAD condition or inventing rows for unevaluated models.
+    # Native-volume organ-FOV results are added only after the complete
+    # 1,526-volume run and scorer artifact are verified. Never expose partial
+    # shards for models whose runs are still active or failed.
     m3d_fov_rows = rows(
         RESULTS
         / "standalone_operation_outputs_v1/assess/volume_tracks/t1_assess_native3d_m3drad_2026-07-29.csv"
@@ -208,6 +206,30 @@ def main() -> None:
             "input": "architecture-native full volume",
         }
     )
+
+    native_score_dirs = [
+        RESULTS
+        / "standalone_operation_outputs_v1/assess/volume_tracks/ctinstruct",
+    ]
+    native_fov_rows: dict[str, list[dict[str, str]]] = {}
+    for result_dir in native_score_dirs:
+        score = json.loads((result_dir / "score.json").read_text())
+        per_organ = rows(result_dir / "per_organ.csv")
+        estimable = [row for row in per_organ if number(row["balanced_accuracy"]) is not None]
+        name = model_name(score["model"])
+        native_fov_rows[name] = per_organ
+        organ_visibility.append(
+            {
+                "model": name,
+                "family": "native_volume_generative",
+                "macroBA": score["macro_balanced_accuracy_estimable_organs"],
+                "sensitivity": sum(float(row["sensitivity"]) for row in estimable) / len(estimable),
+                "specificity": sum(float(row["specificity"]) for row in estimable) / len(estimable),
+                "n": score["n_items"],
+                "eligibleOrgans": score["n_estimable_organs"],
+                "input": "architecture-native full volume",
+            }
+        )
     organ_visibility.sort(key=lambda item: item["macroBA"] or 0, reverse=True)
 
     organ_per_model = []
@@ -233,6 +255,18 @@ def main() -> None:
                 "ba": number(row["balanced_accuracy"]),
             }
         )
+    for name, per_organ in native_fov_rows.items():
+        for row in per_organ:
+            organ_per_model.append(
+                {
+                    "model": name,
+                    "organ": row["organ"],
+                    "n": number(row["n"]),
+                    "sensitivity": number(row["sensitivity"]),
+                    "specificity": number(row["specificity"]),
+                    "ba": number(row["balanced_accuracy"]),
+                }
+            )
 
     full_finding_counts = {
         row["label"]: int(row["n_positive_scans"])
