@@ -24,6 +24,7 @@ MODELS = [
     ("Qwen3.5-9B", "General-purpose VLM", "Alibaba Group"),
     ("Qwen3-VL-8B", "General-purpose VLM", "Alibaba Group"),
     ("InternVL3.5-8B", "General-purpose VLM", "Shanghai AI Lab"),
+    ("Janus-Pro-7B", "General-purpose VLM", "DeepSeek"),
     ("Hulu-Med-32B", "Medical slice / video VLM", "Zhejiang University"),
     ("Lingshu-I-8B", "Medical slice / video VLM", "Alibaba Group"),
     ("HealthGPT-Pro-8B", "Medical slice / video VLM", "Zhejiang University"),
@@ -61,6 +62,8 @@ ALIASES = {
     "GPT-5.5": "GPT-5.5",
     "Opus 4.8": "Claude Opus 4.8",
     "Claude Opus 4.8": "Claude Opus 4.8",
+    "deepseek-ai/Janus-Pro-7B": "Janus-Pro-7B",
+    "Janus-Pro-7B": "Janus-Pro-7B",
     "Qwen-27B": "Qwen3.5-27B",
     "Qwen3.5-27B": "Qwen3.5-27B",
     "Qwen3.5-9B": "Qwen3.5-9B",
@@ -306,6 +309,59 @@ def main() -> None:
                     "specificity": number(row.get("specificity")),
                 }
             )
+
+    # Janus-Pro-7B was evaluated after the paper figure source was frozen.
+    # Reconstruct its final 179-finding cells from the verified base and repair
+    # artifacts using the same merge rule as the common-16 summary: replace
+    # pulmonary edema, add the balanced minimum-support cases, then recompute.
+    janus_dir = RESULTS / "read_breadth_min20_repair/janus_pro_7b"
+    janus_base = json.loads((janus_dir / "base_score.json").read_text())
+    janus_repair = json.loads((janus_dir / "repair_score.json").read_text())
+    janus_final = json.loads((janus_dir / "merged_score.json").read_text())
+    if not janus_base.get("complete") or not janus_repair.get("complete"):
+        raise RuntimeError("Janus-Pro-7B Read-breadth artifacts are incomplete")
+    additive = janus_repair["branches"]["additive"]["per_finding"]
+    pulmonary = janus_repair["branches"]["pulmonary_replacement"]["per_finding"]
+    finding_meta = {}
+    for item in breadth:
+        finding_meta.setdefault(item["findingId"], item)
+    janus_rows = []
+    for finding_id, base_metric in janus_base["per_finding"].items():
+        if finding_id == "pulmonary_edema":
+            metric = dict(pulmonary[finding_id])
+        else:
+            metric = dict(base_metric)
+            if finding_id in additive:
+                for key in ("n", "n_positive", "n_negative", "tp", "fn", "tn", "fp"):
+                    metric[key] = int(metric[key]) + int(additive[finding_id][key])
+                metric["sensitivity"] = metric["tp"] / metric["n_positive"]
+                metric["specificity"] = metric["tn"] / metric["n_negative"]
+                metric["balanced_accuracy"] = (metric["sensitivity"] + metric["specificity"]) / 2
+        meta = finding_meta[finding_id]
+        janus_rows.append(
+            {
+                "model": "Janus-Pro-7B",
+                "family": "generative",
+                "cohort": "frozen common cohort + minimum-support repair",
+                "findingId": finding_id,
+                "finding": meta["finding"],
+                "organId": meta["organId"],
+                "organ": meta["organ"],
+                "n": metric["n"],
+                "positive": metric["n_positive"],
+                "negative": metric["n_negative"],
+                "datasetPositive": full_finding_counts[finding_id],
+                "ba": metric["balanced_accuracy"],
+                "sensitivity": metric["sensitivity"],
+                "specificity": metric["specificity"],
+            }
+        )
+    if len(janus_rows) != 179 or sum(row["n"] for row in janus_rows) != 16532:
+        raise RuntimeError("Janus-Pro-7B final cohort does not match 179 findings / 16,532 items")
+    janus_macro = sum(row["ba"] for row in janus_rows) / len(janus_rows)
+    if abs(janus_macro - janus_final["macro_balanced_accuracy"]) > 1e-12:
+        raise RuntimeError("Janus-Pro-7B per-finding reconstruction does not match final macro BA")
+    breadth.extend(janus_rows)
     breadth_by_model: dict[str, list[float]] = defaultdict(list)
     breadth_rows_by_model: dict[str, list[dict]] = defaultdict(list)
     for row in breadth:
@@ -354,6 +410,66 @@ def main() -> None:
                     "supervised": row.get("supervised", "").lower() == "true",
                 }
             )
+
+    # Add the Janus clinical-category profile over the same routed 170
+    # findings used by the paper-aligned chest/abdomen panel.
+    cardiac = {
+        "aortic_valve_calcification", "cardiomegaly", "coronary_artery_calcification",
+        "coronary_atherosclerosis", "coronary_bypass_graft", "ischemic_heart_disease",
+        "pericardial_effusion", "pulmonary_hypertension", "right_heart_strain",
+    }
+    thoracic_vascular = {
+        "aortic_dissection", "penetrating_aortic_ulcer", "pulmonary_embolism",
+        "thoracic_aortic_aneurysm_or_ectasia",
+    }
+    pleura_air = {
+        "hemothorax", "pleural_effusion", "pleural_empyema", "pleural_thickening_or_plaques",
+        "pleurodesis", "pneumomediastinum", "pneumothorax", "subcutaneous_emphysema",
+    }
+    chest_devices = {
+        "central_venous_catheter", "endotracheal_tube", "nasogastric_tube",
+        "pulmonary_resection", "sternotomy", "surgical_gastric_conduit",
+    }
+
+    def janus_chest_group(finding: str, organ: str) -> str:
+        if finding in cardiac:
+            return "Cardiac / coronary"
+        if finding in thoracic_vascular or organ == "vascular":
+            return "Thoracic vascular"
+        if finding in pleura_air:
+            return "Pleura / air"
+        if finding in chest_devices or organ == "device":
+            return "Devices / postop"
+        if organ in {"gastrointestinal", "musculoskeletal", "neck_thyroid"} or finding == "gynecomastia":
+            return "Esoph. / chest wall"
+        return "Lung / airways"
+
+    abdomen_groups = {
+        "liver": "Hepatobiliary", "biliary": "Hepatobiliary", "gallbladder": "Hepatobiliary",
+        "pancreas": "Pancreas", "gastrointestinal": "Gastrointestinal",
+        "genitourinary": "GU / pelvis", "female_pelvis": "GU / pelvis", "male_pelvis": "GU / pelvis",
+        "spleen": "Spleen / adrenal", "adrenal": "Spleen / adrenal",
+        "peritoneum": "Peritoneal / retro.", "retroperitoneum": "Peritoneal / retro.",
+        "vascular": "Vascular", "device": "Devices", "musculoskeletal": "Musculoskeletal",
+    }
+    routes = rows(RESULTS / "encoder_ground_breadth/pillar0_zero_shot_per_finding.csv")
+    janus_by_finding = {row["findingId"]: row for row in janus_rows}
+    grouped: dict[tuple[str, str], list[float]] = defaultdict(list)
+    for route in routes:
+        finding_id, domain, organ = route["finding"], route["route"], route["organ"]
+        if domain not in {"chest", "abdomen"}:
+            continue
+        group = janus_chest_group(finding_id, organ) if domain == "chest" else abdomen_groups[organ]
+        grouped[(domain, group)].append(float(janus_by_finding[finding_id]["ba"]))
+    for domain in ("chest", "abdomen"):
+        domain_values = [value for (row_domain, _), values in grouped.items() if row_domain == domain for value in values]
+        read_domain.append({"model": "Janus-Pro-7B", "family": "generative", "domain": domain,
+                            "group": "__domain_macro__", "nFindings": len(domain_values),
+                            "macroBA": sum(domain_values) / len(domain_values), "supervised": False})
+    for (domain, group), values in grouped.items():
+        read_domain.append({"model": "Janus-Pro-7B", "family": "generative", "domain": domain,
+                            "group": group, "nFindings": len(values),
+                            "macroBA": sum(values) / len(values), "supervised": False})
 
     consistency = []
     for row in rows(
