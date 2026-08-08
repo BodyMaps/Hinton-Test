@@ -212,6 +212,8 @@ def main() -> None:
         / "standalone_operation_outputs_v1/assess/volume_tracks/ctinstruct",
         RESULTS
         / "standalone_operation_outputs_v1/assess/volume_tracks/radfm",
+        RESULTS
+        / "standalone_operation_outputs_v1/assess/volume_tracks/omnict",
     ]
     native_fov_rows: dict[str, list[dict[str, str]]] = {}
     for result_dir in native_score_dirs:
