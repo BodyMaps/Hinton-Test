@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -363,6 +364,48 @@ def main() -> None:
     if abs(janus_macro - janus_final["macro_balanced_accuracy"]) > 1e-12:
         raise RuntimeError("Janus-Pro-7B per-finding reconstruction does not match final macro BA")
     breadth.extend(janus_rows)
+
+    # Qwen3-VL-8B was completed on the same expanded minimum-support cohort.
+    # Its final artifact already contains the merged 179-finding cells, so use
+    # those directly and pin the released score hash before publishing them.
+    qwen_dir = RESULTS / "read_breadth_min20_repair/qwen3_vl_8b"
+    qwen_score_path = qwen_dir / "merged_score.json"
+    qwen_expected_sha256 = "8ddf5545662bfbbccb5ecd8298a7a6a1d253d0a33ce6afd30cfc1ecbbac03da6"
+    if hashlib.sha256(qwen_score_path.read_bytes()).hexdigest() != qwen_expected_sha256:
+        raise RuntimeError("Qwen3-VL-8B final score hash does not match the released artifact")
+    qwen_final = json.loads(qwen_score_path.read_text())
+    qwen_rows = []
+    for row in rows(qwen_dir / "per_finding_final.csv"):
+        qwen_rows.append(
+            {
+                "model": "Qwen3-VL-8B",
+                "family": "generative",
+                "cohort": row["evaluation_condition"],
+                "findingId": row["finding_id"],
+                "finding": row["finding_label"],
+                "organId": row["organ_group"],
+                "organ": row["organ_label"],
+                "n": number(row["n_items"]),
+                "positive": number(row["n_positive"]),
+                "negative": number(row["n_negative"]),
+                "datasetPositive": full_finding_counts[row["finding_id"]],
+                "ba": number(row["balanced_accuracy"]),
+                "sensitivity": number(row["sensitivity"]),
+                "specificity": number(row["specificity"]),
+            }
+        )
+    qwen_macro = sum(float(row["ba"]) for row in qwen_rows) / len(qwen_rows)
+    qwen_sensitivity = _weighted_rate(qwen_rows, "sensitivity", "positive")
+    qwen_specificity = _weighted_rate(qwen_rows, "specificity", "negative")
+    if len(qwen_rows) != 179 or sum(int(row["n"]) for row in qwen_rows) != 16532:
+        raise RuntimeError("Qwen3-VL-8B final cohort does not match 179 findings / 16,532 items")
+    if abs(qwen_macro - qwen_final["macro_balanced_accuracy_179"]) > 1e-12:
+        raise RuntimeError("Qwen3-VL-8B per-finding rows do not match final macro BA")
+    if abs(float(qwen_sensitivity) - qwen_final["micro_sensitivity"]) > 1e-12:
+        raise RuntimeError("Qwen3-VL-8B per-finding rows do not match final sensitivity")
+    if abs(float(qwen_specificity) - qwen_final["micro_specificity"]) > 1e-12:
+        raise RuntimeError("Qwen3-VL-8B per-finding rows do not match final specificity")
+    breadth.extend(qwen_rows)
     breadth_by_model: dict[str, list[float]] = defaultdict(list)
     breadth_rows_by_model: dict[str, list[dict]] = defaultdict(list)
     for row in breadth:
@@ -432,7 +475,7 @@ def main() -> None:
         "pulmonary_resection", "sternotomy", "surgical_gastric_conduit",
     }
 
-    def janus_chest_group(finding: str, organ: str) -> str:
+    def chest_group(finding: str, organ: str) -> str:
         if finding in cardiac:
             return "Cardiac / coronary"
         if finding in thoracic_vascular or organ == "vascular":
@@ -454,23 +497,27 @@ def main() -> None:
         "vascular": "Vascular", "device": "Devices", "musculoskeletal": "Musculoskeletal",
     }
     routes = rows(RESULTS / "encoder_ground_breadth/pillar0_zero_shot_per_finding.csv")
-    janus_by_finding = {row["findingId"]: row for row in janus_rows}
-    grouped: dict[tuple[str, str], list[float]] = defaultdict(list)
-    for route in routes:
-        finding_id, domain, organ = route["finding"], route["route"], route["organ"]
-        if domain not in {"chest", "abdomen"}:
-            continue
-        group = janus_chest_group(finding_id, organ) if domain == "chest" else abdomen_groups[organ]
-        grouped[(domain, group)].append(float(janus_by_finding[finding_id]["ba"]))
-    for domain in ("chest", "abdomen"):
-        domain_values = [value for (row_domain, _), values in grouped.items() if row_domain == domain for value in values]
-        read_domain.append({"model": "DeepSeek-Janus-Pro-7B", "family": "generative", "domain": domain,
-                            "group": "__domain_macro__", "nFindings": len(domain_values),
-                            "macroBA": sum(domain_values) / len(domain_values), "supervised": False})
-    for (domain, group), values in grouped.items():
-        read_domain.append({"model": "DeepSeek-Janus-Pro-7B", "family": "generative", "domain": domain,
-                            "group": group, "nFindings": len(values),
-                            "macroBA": sum(values) / len(values), "supervised": False})
+    for domain_model, domain_source_rows in (
+        ("DeepSeek-Janus-Pro-7B", janus_rows),
+        ("Qwen3-VL-8B", qwen_rows),
+    ):
+        by_finding = {row["findingId"]: row for row in domain_source_rows}
+        grouped: dict[tuple[str, str], list[float]] = defaultdict(list)
+        for route in routes:
+            finding_id, domain, organ = route["finding"], route["route"], route["organ"]
+            if domain not in {"chest", "abdomen"}:
+                continue
+            group = chest_group(finding_id, organ) if domain == "chest" else abdomen_groups[organ]
+            grouped[(domain, group)].append(float(by_finding[finding_id]["ba"]))
+        for domain in ("chest", "abdomen"):
+            domain_values = [value for (row_domain, _), values in grouped.items() if row_domain == domain for value in values]
+            read_domain.append({"model": domain_model, "family": "generative", "domain": domain,
+                                "group": "__domain_macro__", "nFindings": len(domain_values),
+                                "macroBA": sum(domain_values) / len(domain_values), "supervised": False})
+        for (domain, group), values in grouped.items():
+            read_domain.append({"model": domain_model, "family": "generative", "domain": domain,
+                                "group": group, "nFindings": len(values),
+                                "macroBA": sum(values) / len(values), "supervised": False})
 
     consistency = []
     for row in rows(
