@@ -24,7 +24,7 @@ MODELS = [
     ("Qwen3.5-9B", "General-purpose VLM", "Alibaba Group"),
     ("Qwen3-VL-8B", "General-purpose VLM", "Alibaba Group"),
     ("InternVL3.5-8B", "General-purpose VLM", "Shanghai AI Lab"),
-    ("Janus-Pro-7B", "General-purpose VLM", "DeepSeek"),
+    ("DeepSeek-Janus-Pro-7B", "General-purpose VLM", "DeepSeek"),
     ("Hulu-Med-32B", "Medical slice / video VLM", "Zhejiang University"),
     ("Lingshu-I-8B", "Medical slice / video VLM", "Alibaba Group"),
     ("HealthGPT-Pro-8B", "Medical slice / video VLM", "Zhejiang University"),
@@ -62,8 +62,9 @@ ALIASES = {
     "GPT-5.5": "GPT-5.5",
     "Opus 4.8": "Claude Opus 4.8",
     "Claude Opus 4.8": "Claude Opus 4.8",
-    "deepseek-ai/Janus-Pro-7B": "Janus-Pro-7B",
-    "Janus-Pro-7B": "Janus-Pro-7B",
+    "deepseek-ai/Janus-Pro-7B": "DeepSeek-Janus-Pro-7B",
+    "Janus-Pro-7B": "DeepSeek-Janus-Pro-7B",
+    "DeepSeek-Janus-Pro-7B": "DeepSeek-Janus-Pro-7B",
     "Qwen-27B": "Qwen3.5-27B",
     "Qwen3.5-27B": "Qwen3.5-27B",
     "Qwen3.5-9B": "Qwen3.5-9B",
@@ -340,7 +341,7 @@ def main() -> None:
         meta = finding_meta[finding_id]
         janus_rows.append(
             {
-                "model": "Janus-Pro-7B",
+                "model": "DeepSeek-Janus-Pro-7B",
                 "family": "generative",
                 "cohort": "frozen common cohort + minimum-support repair",
                 "findingId": finding_id,
@@ -463,11 +464,11 @@ def main() -> None:
         grouped[(domain, group)].append(float(janus_by_finding[finding_id]["ba"]))
     for domain in ("chest", "abdomen"):
         domain_values = [value for (row_domain, _), values in grouped.items() if row_domain == domain for value in values]
-        read_domain.append({"model": "Janus-Pro-7B", "family": "generative", "domain": domain,
+        read_domain.append({"model": "DeepSeek-Janus-Pro-7B", "family": "generative", "domain": domain,
                             "group": "__domain_macro__", "nFindings": len(domain_values),
                             "macroBA": sum(domain_values) / len(domain_values), "supervised": False})
     for (domain, group), values in grouped.items():
-        read_domain.append({"model": "Janus-Pro-7B", "family": "generative", "domain": domain,
+        read_domain.append({"model": "DeepSeek-Janus-Pro-7B", "family": "generative", "domain": domain,
                             "group": group, "nFindings": len(values),
                             "macroBA": sum(values) / len(values), "supervised": False})
 
