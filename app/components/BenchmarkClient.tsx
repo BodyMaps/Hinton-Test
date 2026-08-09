@@ -299,7 +299,7 @@ export function ModelsView() {
   const profileMetrics=selectedModel?[
     {operation:"Assess",endpoint:"Organ visibility",value:data.assess.organVisibility.find(r=>r.model===selectedModel)?.macroBA,format:"score",detail:"macro balanced accuracy"},
     {operation:"Assess",endpoint:"Contrast phase",value:data.assess.phase.find(r=>r.model===selectedModel)?.macroRecall,format:"score",detail:"macro recall"},
-    {operation:"Read",endpoint:"Finding breadth",value:data.read.breadthOverall.find(r=>r.model===selectedModel)?.macroBA,format:"score",detail:selectedModel==="Qwen3-VL-8B"?"16,532 items · rank 12/17 comparable final endpoints":"179-finding macro BA"},
+    {operation:"Read",endpoint:"Finding breadth",value:data.read.breadthOverall.find(r=>r.model===selectedModel)?.macroBA,format:"score",detail:selectedModel==="Qwen3-VL-8B"?"micro BA 0.524 · 16,532 items · rank 12/17 comparable final endpoints":"179-finding macro BA"},
     {operation:"Compare",endpoint:"Temporal change",value:data.compare.overall.find(r=>r.model===selectedModel)?.macroBA,format:"score",detail:"macro balanced accuracy"},
     {operation:"Predict",endpoint:"Hidden successor",value:data.predict.find(r=>r.model===selectedModel)?.brier,format:"brier",detail:"multiclass Brier · lower is better"},
     {operation:"Conclude",endpoint:"+ finding descriptions",value:data.conclude.find(r=>r.model===selectedModel)?.observations,format:"score",detail:"impression accuracy"},

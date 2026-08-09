@@ -436,6 +436,17 @@ def main() -> None:
         for name, values in breadth_by_model.items()
     ]
     breadth_overall.sort(key=lambda item: item["macroBA"], reverse=True)
+    qwen_overall = next(item for item in breadth_overall if item["model"] == "Qwen3-VL-8B")
+    qwen_overall.update(
+        {
+            "microBA": qwen_final["micro_balanced_accuracy"],
+            "comparableRank": 12,
+            "comparableN": 17,
+            "findingsAtLeast20PerClass": qwen_final["findings_at_least_20_per_class"],
+            "findingsBelow20PerClass": len(qwen_final["findings_below_20_per_class"]),
+            "scoreSha256": qwen_expected_sha256,
+        }
+    )
 
     read_domain = []
     for path, family in (
