@@ -663,6 +663,7 @@ def main() -> None:
     ):
         raise RuntimeError("Janus Compare artifact is not complete")
     janus_metrics = janus_compare["model_metrics"]
+    janus_always_stable = janus_compare["baselines_same_rows"]["always_stable"]
     janus_baseline = janus_compare["baselines_same_rows"]["previous_state_conditional"]
     janus_ci = janus_compare["patient_clustered_95ci"]
     compare.append(
@@ -675,8 +676,14 @@ def main() -> None:
             "truthStatus": janus_compare["truth_status"],
             "inputMode": janus_compare["input_mode"],
             "macroBA": janus_metrics["macro_balanced_accuracy"],
+            "accuracy": janus_metrics["accuracy"],
+            "macroF1": janus_metrics["macro_f1"],
+            "predictionDistribution": janus_metrics["prediction_distribution"],
             "low": janus_ci["macro_balanced_accuracy"][0],
             "high": janus_ci["macro_balanced_accuracy"][1],
+            "alwaysStableBaseline": janus_always_stable["macro_balanced_accuracy"],
+            "alwaysStableDeltaLow": janus_ci["model_minus_always_stable_macro_ba"][0],
+            "alwaysStableDeltaHigh": janus_ci["model_minus_always_stable_macro_ba"][1],
             "baseline": janus_baseline["macro_balanced_accuracy"],
             "delta": (
                 janus_metrics["macro_balanced_accuracy"]
