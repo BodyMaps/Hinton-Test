@@ -619,11 +619,16 @@ def main() -> None:
             {
                 "model": model_name(row["model"]),
                 "family": row["family"],
+                "n": 1231,
+                "patients": 826,
+                "cohort": "main expanded cohort",
                 "macroBA": number(row["macro_balanced_accuracy"]),
                 "low": number(row["ci_lo"]),
                 "high": number(row["ci_hi"]),
                 "baseline": number(row["previous_state_rule"]),
                 "delta": number(row["delta_vs_previous_state_rule"]),
+                "deltaLow": number(row["delta_ci_lo"]),
+                "deltaHigh": number(row["delta_ci_hi"]),
             }
         )
     compare_findings = []
@@ -635,6 +640,61 @@ def main() -> None:
                 "finding": row["finding"],
                 "n": number(row["n"]),
                 "macroBA": number(row["macro_balanced_accuracy"]),
+            }
+        )
+
+    janus_compare_path = (
+        RESULTS
+        / "standalone_operation_outputs_v1/compare/janus_pro_7b"
+        / "janus_pro_7b_compare_expanded551_score.json"
+    )
+    janus_compare_expected_sha256 = (
+        "1b5c1c728a66eda58b84f94e51637ae3a042469da47bb38ab6c5940f3d841594"
+    )
+    if hashlib.sha256(janus_compare_path.read_bytes()).hexdigest() != janus_compare_expected_sha256:
+        raise RuntimeError("Janus Compare score hash does not match the finalized artifact")
+    janus_compare = json.loads(janus_compare_path.read_text())
+    if (
+        janus_compare.get("status") != "final"
+        or janus_compare.get("n_requested") != 551
+        or janus_compare.get("n_success") != 551
+        or janus_compare.get("n_failed_or_missing") != 0
+        or janus_compare.get("failed_or_missing_update_ids")
+    ):
+        raise RuntimeError("Janus Compare artifact is not complete")
+    janus_metrics = janus_compare["model_metrics"]
+    janus_baseline = janus_compare["baselines_same_rows"]["previous_state_conditional"]
+    janus_ci = janus_compare["patient_clustered_95ci"]
+    compare.append(
+        {
+            "model": model_name(janus_compare["model"]),
+            "family": "generative_secondary_cohort",
+            "n": janus_compare["n_success"],
+            "patients": janus_compare["n_patients"],
+            "cohort": janus_compare["cohort"],
+            "truthStatus": janus_compare["truth_status"],
+            "inputMode": janus_compare["input_mode"],
+            "macroBA": janus_metrics["macro_balanced_accuracy"],
+            "low": janus_ci["macro_balanced_accuracy"][0],
+            "high": janus_ci["macro_balanced_accuracy"][1],
+            "baseline": janus_baseline["macro_balanced_accuracy"],
+            "delta": (
+                janus_metrics["macro_balanced_accuracy"]
+                - janus_baseline["macro_balanced_accuracy"]
+            ),
+            "deltaLow": janus_ci["model_minus_previous_state_conditional_macro_ba"][0],
+            "deltaHigh": janus_ci["model_minus_previous_state_conditional_macro_ba"][1],
+            "scoreSha256": janus_compare_expected_sha256,
+        }
+    )
+    for finding, metric in janus_compare["subgroups"]["finding"].items():
+        compare_findings.append(
+            {
+                "model": model_name(janus_compare["model"]),
+                "family": "generative_secondary_cohort",
+                "finding": finding,
+                "n": metric["n"],
+                "macroBA": metric["macro_balanced_accuracy"],
             }
         )
 
