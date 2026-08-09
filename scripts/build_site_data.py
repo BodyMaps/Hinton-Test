@@ -312,6 +312,45 @@ def main() -> None:
                 }
             )
 
+    # Replace the frozen 14,832-item cells for every model in the verified
+    # common-15 merge with its expanded 16,532-item, 179-finding result.
+    # Models outside this released merge retain their original cohort.
+    expanded_dir = RESULTS / "read_breadth_min20_repair/merged_common15"
+    expanded_summary = {
+        row["model"]: row for row in rows(expanded_dir / "per_model_summary.csv")
+    }
+    expanded_cells = {
+        (row["model"], row["finding"]): row
+        for row in rows(expanded_dir / "per_model_per_finding.csv")
+    }
+    expanded_models = set(expanded_summary)
+    for item in breadth:
+        key = (item["model"], item["findingId"])
+        if key not in expanded_cells:
+            continue
+        final_cell = expanded_cells[key]
+        n_per_class = int(final_cell["new_n_per_class"])
+        item.update(
+            {
+                "cohort": "expanded min-20 cohort",
+                "n": 2 * n_per_class,
+                "positive": n_per_class,
+                "negative": n_per_class,
+                "ba": float(final_cell["new_balanced_accuracy"]),
+                # The released common-15 merge reports final per-finding BA,
+                # not the two directional rates. Do not retain stale rates.
+                "sensitivity": None,
+                "specificity": None,
+            }
+        )
+    for name, summary in expanded_summary.items():
+        model_rows = [row for row in breadth if row["model"] == name]
+        if len(model_rows) != 179 or sum(int(row["n"]) for row in model_rows) != 16532:
+            raise RuntimeError(f"{name} expanded cohort does not match 179 findings / 16,532 items")
+        macro = sum(float(row["ba"]) for row in model_rows) / len(model_rows)
+        if abs(macro - float(summary["new_macro_balanced_accuracy"])) > 1e-12:
+            raise RuntimeError(f"{name} expanded per-finding rows do not match final macro BA")
+
     # Janus-Pro-7B was evaluated after the paper figure source was frozen.
     # Reconstruct its final 179-finding cells from the verified base and repair
     # artifacts using the same merge rule as the common-16 summary: replace
@@ -417,6 +456,8 @@ def main() -> None:
     }
 
     def overall_rate(name: str, metric: str, weight: str) -> float | None:
+        if name in expanded_models:
+            return _weighted_rate(breadth_rows_by_model[name], metric, weight)
         reported = number(common_read.get(name, {}).get(metric))
         if reported is not None:
             return reported
@@ -466,7 +507,11 @@ def main() -> None:
                 }
             )
 
-    # Add the Janus clinical-category profile over the same routed 170
+    # The paper-aligned domain file predates the expanded cohort. Remove its
+    # common-15 rows and regenerate those profiles from the final cells below.
+    read_domain = [row for row in read_domain if row["model"] not in expanded_models]
+
+    # Add expanded-cohort clinical-category profiles over the same routed 170
     # findings used by the paper-aligned chest/abdomen panel.
     cardiac = {
         "aortic_valve_calcification", "cardiomegaly", "coronary_artery_calcification",
@@ -508,10 +553,13 @@ def main() -> None:
         "vascular": "Vascular", "device": "Devices", "musculoskeletal": "Musculoskeletal",
     }
     routes = rows(RESULTS / "encoder_ground_breadth/pillar0_zero_shot_per_finding.csv")
-    for domain_model, domain_source_rows in (
+    expanded_domain_sources = [
+        (name, breadth_rows_by_model[name]) for name in sorted(expanded_models)
+    ] + [
         ("DeepSeek-Janus-Pro-7B", janus_rows),
         ("Qwen3-VL-8B", qwen_rows),
-    ):
+    ]
+    for domain_model, domain_source_rows in expanded_domain_sources:
         by_finding = {row["findingId"]: row for row in domain_source_rows}
         grouped: dict[tuple[str, str], list[float]] = defaultdict(list)
         for route in routes:
