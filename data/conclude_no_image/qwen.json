@@ -1,0 +1,62 @@
+{
+  "arm_scores": {
+    "image_derived": {
+      "accuracy": 0.5,
+      "correct": 100,
+      "n": 200,
+      "prediction_distribution": {
+        "NOT_SUPPORTED": 100,
+        "SUPPORTED": 100
+      },
+      "unparseable": 0
+    },
+    "provided_observations": {
+      "accuracy": 0.49,
+      "correct": 98,
+      "n": 200,
+      "prediction_distribution": {
+        "NOT_SUPPORTED": 108,
+        "SUPPORTED": 91,
+        "unparseable": 1
+      },
+      "unparseable": 1
+    }
+  },
+  "cohort": {
+    "cases": 200,
+    "paired_decisions": 400
+  },
+  "condition": "matched no-image control",
+  "coverage": {
+    "duplicates": 0,
+    "errors": 0,
+    "missing": 0,
+    "rows": 400,
+    "unexpected": 0,
+    "unique_decisions": 400,
+    "unparseable": 1
+  },
+  "model": "Qwen3.5-27B",
+  "operation": "RADWORLD Conclude",
+  "provided_minus_image_derived_accuracy": -0.010000000000000009,
+  "schema_version": "radworld-conclude-no-image-sharded-score-v1",
+  "source_shards": [
+    {
+      "path": "results_qwen35_27b_no_image_v1/shard_00_of_04.jsonl",
+      "sha256": "3093485a1bf52d809495dd87845e5809219f3ecb765413f615bec36d9d109836"
+    },
+    {
+      "path": "results_qwen35_27b_no_image_v1/shard_01_of_04.jsonl",
+      "sha256": "39a9d17ddb85e6d78248093c1345eb7a0034aa910f6e60c78c7e44b7dc76694a"
+    },
+    {
+      "path": "results_qwen35_27b_no_image_v1/shard_02_of_04.jsonl",
+      "sha256": "f4c23c82de390fc411092e045b493fc165744bb85955f8517e61c21ba8c5ab98"
+    },
+    {
+      "path": "results_qwen35_27b_no_image_v1/shard_03_of_04.jsonl",
+      "sha256": "05155e4c43d78d9c1b1ff9252d27328422c0d1bdfa25193071da900b1c524261"
+    }
+  ],
+  "unparseable_policy": "Retained and counted incorrect; no fallback label."
+}

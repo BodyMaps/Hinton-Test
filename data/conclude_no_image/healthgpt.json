@@ -1,0 +1,54 @@
+{
+  "arm_scores": {
+    "image_derived": {
+      "accuracy": 0.5,
+      "correct": 100,
+      "n": 200,
+      "prediction_distribution": {
+        "NOT_SUPPORTED": 180,
+        "SUPPORTED": 20
+      },
+      "unparseable": 0
+    },
+    "provided_observations": {
+      "accuracy": 0.55,
+      "correct": 110,
+      "n": 200,
+      "prediction_distribution": {
+        "NOT_SUPPORTED": 170,
+        "SUPPORTED": 30
+      },
+      "unparseable": 0
+    }
+  },
+  "condition": "matched no-image control",
+  "coverage": {
+    "recovered_structured_prefixes": 83,
+    "remaining_unparseable": 0,
+    "rows": 400,
+    "unique_decisions": 400
+  },
+  "model": "lintw/HealthGPT-Pro-8B",
+  "parsing_policy": "Recover only an anchored SUPPORTED/NOT_SUPPORTED suffix following the frozen assistant JSON prefill; ground truth is not consulted.",
+  "predictions_sha256": "a46242ed2a3a4f4925ebc8325c3907ad8d29030d6256780011a0955e30011d8f",
+  "provided_minus_image_derived_accuracy": 0.050000000000000044,
+  "schema_version": "radworld-conclude-healthgpt-no-image-reparse-v1",
+  "source_shards": [
+    {
+      "path": "/mnt/scratch/user/hagu/t2_179_stage_v1/radworld_temporal_codes/conclude_balanced20_v2/results_healthgpt_pro_8b_no_image_final_v1/shard_00_of_04.jsonl",
+      "sha256": "794bfe1dee714a15b89f7359abd74315c93f2a8c183224ca2136df3175b8ee74"
+    },
+    {
+      "path": "/mnt/scratch/user/hagu/t2_179_stage_v1/radworld_temporal_codes/conclude_balanced20_v2/results_healthgpt_pro_8b_no_image_final_v1/shard_01_of_04.jsonl",
+      "sha256": "9a26d8b9e491da4c45d9e453dfe22ae560e03c1e541c51e77623c9cac31e5bb2"
+    },
+    {
+      "path": "/mnt/scratch/user/hagu/t2_179_stage_v1/radworld_temporal_codes/conclude_balanced20_v2/results_healthgpt_pro_8b_no_image_final_v1/shard_02_of_04.jsonl",
+      "sha256": "c18695c74b5ede44c971f46fd0a30679a9dec1450eefbd0b34e9f0ad0cc7c6c4"
+    },
+    {
+      "path": "/mnt/scratch/user/hagu/t2_179_stage_v1/radworld_temporal_codes/conclude_balanced20_v2/results_healthgpt_pro_8b_no_image_final_v1/shard_03_of_04.jsonl",
+      "sha256": "0dc58707717fb7d2cf62c010fee8cd4fc155358529f627d23a64834d01361ea7"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "arm_scores": {
+    "image_derived": {
+      "accuracy": 0.505,
+      "macro_recall": 0.505,
+      "n": 200,
+      "per_class_recall": {
+        "NOT_SUPPORTED": 1.0,
+        "SUPPORTED": 0.01
+      },
+      "prediction_distribution": {
+        "NOT_SUPPORTED": 199,
+        "SUPPORTED": 1
+      },
+      "unparseable": 0
+    },
+    "provided_observations": {
+      "accuracy": 0.545,
+      "macro_recall": 0.545,
+      "n": 200,
+      "per_class_recall": {
+        "NOT_SUPPORTED": 0.81,
+        "SUPPORTED": 0.28
+      },
+      "prediction_distribution": {
+        "NOT_SUPPORTED": 153,
+        "SUPPORTED": 47
+      },
+      "unparseable": 0
+    }
+  },
+  "cohort": {
+    "cases": 200,
+    "classes": 2,
+    "reference_status": "report-derived weak current-examination conclusion; not independently image-adjudicated"
+  },
+  "coverage": {
+    "image_derived": {
+      "duplicates": 0,
+      "errors": 0,
+      "missing": 0,
+      "rows": 200,
+      "unique_cases": 200
+    },
+    "provided_observations": {
+      "duplicates": 0,
+      "errors": 0,
+      "missing": 0,
+      "rows": 200,
+      "unique_cases": 200
+    }
+  },
+  "model": "Claude Opus 4.8",
+  "operation": "RADWORLD Conclude",
+  "protocol": "current-examination conclusion selection v1",
+  "provided_minus_image_derived_accuracy": 0.040000000000000036
+}

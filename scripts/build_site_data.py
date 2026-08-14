@@ -805,17 +805,45 @@ def main() -> None:
             "input": input_text, "cohort": cohort, "baseline": baseline, "rows": action_rows,
         })
 
+    no_image_files = {
+        "GPT-5.5": "gpt55.json",
+        "Claude Opus 4.8": "opus48.json",
+        "Qwen3.5-27B": "qwen.json",
+        "Hulu-Med-32B": "hulu.json",
+        "Lingshu-I-8B": "lingshu.json",
+        "HealthGPT-Pro-8B": "healthgpt.json",
+        "OmniCT-7B native": "omnict.json",
+    }
+    no_image_scores = {}
+    for name, filename in no_image_files.items():
+        path = SITE / "data/conclude_no_image" / filename
+        score = json.loads(path.read_text())
+        question = score["arm_scores"]["image_derived"]
+        findings = score["arm_scores"]["provided_observations"]
+        if question["n"] != 200 or findings["n"] != 200:
+            raise RuntimeError(f"unexpected Conclude no-image coverage in {path}")
+        no_image_scores[name] = {
+            "questionOnly": question["accuracy"],
+            "findingsOnly": findings["accuracy"],
+            "noImageDelta": findings["accuracy"] - question["accuracy"],
+            "noImageUnparseable": question.get("unparseable", 0)
+            + findings.get("unparseable", 0),
+            "noImageScoreSha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+
     conclude = []
     for row in rows(
         RESULTS / "conclude_balanced20_seven_model_summary_2026-07-31.csv"
     ):
+        name = model_name(row["model"])
         conclude.append(
             {
-                "model": model_name(row["model"]),
+                "model": name,
                 "examinations": number(row["examinations"]),
                 "images": number(row["image_only_accuracy"]),
                 "observations": number(row["observations_accuracy"]),
                 "delta": number(row["delta_accuracy"]),
+                **no_image_scores[name],
             }
         )
 

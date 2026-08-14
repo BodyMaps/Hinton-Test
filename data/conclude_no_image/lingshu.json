@@ -1,0 +1,57 @@
+{
+  "arm_scores": {
+    "image_derived": {
+      "accuracy": 0.5,
+      "macro_recall": 0.5,
+      "n": 200,
+      "per_class_recall": {
+        "NOT_SUPPORTED": 0.9,
+        "SUPPORTED": 0.1
+      },
+      "prediction_distribution": {
+        "NOT_SUPPORTED": 180,
+        "SUPPORTED": 20
+      },
+      "unparseable": 0
+    },
+    "provided_observations": {
+      "accuracy": 0.56,
+      "macro_recall": 0.5599999999999999,
+      "n": 200,
+      "per_class_recall": {
+        "NOT_SUPPORTED": 0.7,
+        "SUPPORTED": 0.42
+      },
+      "prediction_distribution": {
+        "NOT_SUPPORTED": 128,
+        "SUPPORTED": 72
+      },
+      "unparseable": 0
+    }
+  },
+  "cohort": {
+    "cases": 200,
+    "classes": 2,
+    "reference_status": "report-derived weak current-examination conclusion; not independently image-adjudicated"
+  },
+  "coverage": {
+    "image_derived": {
+      "duplicates": 0,
+      "errors": 0,
+      "missing": 0,
+      "rows": 200,
+      "unique_cases": 200
+    },
+    "provided_observations": {
+      "duplicates": 0,
+      "errors": 0,
+      "missing": 0,
+      "rows": 200,
+      "unique_cases": 200
+    }
+  },
+  "model": "lingshu-medical-mllm/Lingshu-I-8B",
+  "operation": "RADWORLD Conclude",
+  "protocol": "current-examination conclusion selection v1",
+  "provided_minus_image_derived_accuracy": 0.06000000000000005
+}

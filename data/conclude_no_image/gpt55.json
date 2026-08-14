@@ -1,0 +1,57 @@
+{
+  "arm_scores": {
+    "image_derived": {
+      "accuracy": 0.525,
+      "macro_recall": 0.525,
+      "n": 200,
+      "per_class_recall": {
+        "NOT_SUPPORTED": 0.63,
+        "SUPPORTED": 0.42
+      },
+      "prediction_distribution": {
+        "NOT_SUPPORTED": 121,
+        "SUPPORTED": 79
+      },
+      "unparseable": 0
+    },
+    "provided_observations": {
+      "accuracy": 0.565,
+      "macro_recall": 0.565,
+      "n": 200,
+      "per_class_recall": {
+        "NOT_SUPPORTED": 0.73,
+        "SUPPORTED": 0.4
+      },
+      "prediction_distribution": {
+        "NOT_SUPPORTED": 133,
+        "SUPPORTED": 67
+      },
+      "unparseable": 0
+    }
+  },
+  "cohort": {
+    "cases": 200,
+    "classes": 2,
+    "reference_status": "report-derived weak current-examination conclusion; not independently image-adjudicated"
+  },
+  "coverage": {
+    "image_derived": {
+      "duplicates": 0,
+      "errors": 0,
+      "missing": 0,
+      "rows": 200,
+      "unique_cases": 200
+    },
+    "provided_observations": {
+      "duplicates": 0,
+      "errors": 0,
+      "missing": 0,
+      "rows": 200,
+      "unique_cases": 200
+    }
+  },
+  "model": "GPT-5.5",
+  "operation": "RADWORLD Conclude",
+  "protocol": "current-examination conclusion selection v1",
+  "provided_minus_image_derived_accuracy": 0.039999999999999925
+}

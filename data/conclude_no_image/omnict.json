@@ -1,0 +1,61 @@
+{
+  "arm_scores": {
+    "image_derived": {
+      "accuracy": 0.5,
+      "correct": 100,
+      "n": 200,
+      "prediction_distribution": {
+        "NOT_SUPPORTED": 160,
+        "SUPPORTED": 40
+      },
+      "unparseable": 0
+    },
+    "provided_observations": {
+      "accuracy": 0.485,
+      "correct": 97,
+      "n": 200,
+      "prediction_distribution": {
+        "NOT_SUPPORTED": 147,
+        "SUPPORTED": 53
+      },
+      "unparseable": 0
+    }
+  },
+  "cohort": {
+    "cases": 200,
+    "paired_decisions": 400
+  },
+  "condition": "matched no-image control",
+  "coverage": {
+    "duplicates": 0,
+    "errors": 0,
+    "missing": 0,
+    "rows": 400,
+    "unexpected": 0,
+    "unique_decisions": 400,
+    "unparseable": 0
+  },
+  "model": "OmniCT-7B-native",
+  "operation": "RADWORLD Conclude",
+  "predictions_sha256": "6d259f4f1410d89ec71e479363e56e21880979267737706d1c38b1a46006a745",
+  "provided_minus_image_derived_accuracy": -0.015000000000000013,
+  "schema_version": "radworld-conclude-no-image-sharded-score-v1",
+  "source_shards": [
+    {
+      "path": "/mnt/scratch/user/hagu/t2_179_stage_v1/radworld_temporal_codes/conclude_balanced20_v2/results_omnict_native_no_image_repair_v1/shard_00_of_04.jsonl",
+      "sha256": "de49330f4d961c53b13c5a6afaec8bca7eaafdf40211d036568d6861c5a5ba23"
+    },
+    {
+      "path": "/mnt/scratch/user/hagu/t2_179_stage_v1/radworld_temporal_codes/conclude_balanced20_v2/results_omnict_native_no_image_repair_v1/shard_01_of_04.jsonl",
+      "sha256": "b50069a3fd8d165baf717d4d8c6489ea019d6db774e99ac82e146a8a02daac0a"
+    },
+    {
+      "path": "/mnt/scratch/user/hagu/t2_179_stage_v1/radworld_temporal_codes/conclude_balanced20_v2/results_omnict_native_no_image_repair_v1/shard_02_of_04.jsonl",
+      "sha256": "411c9eeaac50d9ebed0d0295d870712ca22132ece78f66abb0f013de65d9d9d7"
+    },
+    {
+      "path": "/mnt/scratch/user/hagu/t2_179_stage_v1/radworld_temporal_codes/conclude_balanced20_v2/results_omnict_native_no_image_repair_v1/shard_03_of_04.jsonl",
+      "sha256": "c29202d43239003b0c0bf73b964123a999df31465bd6608fcdd6eb218c23a934"
+    }
+  ]
+}
