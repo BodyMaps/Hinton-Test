@@ -68,6 +68,7 @@ ALIASES = {
     "DeepSeek-Janus-Pro-7B": "DeepSeek-Janus-Pro-7B",
     "Qwen-27B": "Qwen3.5-27B",
     "Qwen3.5-27B": "Qwen3.5-27B",
+    "Qwen/Qwen3.5-27B": "Qwen3.5-27B",
     "Qwen3.5-9B": "Qwen3.5-9B",
     "Lingshu": "Lingshu-I-8B",
     "Lingshu-I-8B": "Lingshu-I-8B",
@@ -478,6 +479,35 @@ def main() -> None:
     ]
     breadth_overall.sort(key=lambda item: item["macroBA"], reverse=True)
     qwen_overall = next(item for item in breadth_overall if item["model"] == "Qwen3-VL-8B")
+
+    read_no_image = []
+    read_no_image_dir = RESULTS / "standalone_operation_outputs_v1/read/no_image_repeat10_v1"
+    for path in sorted(read_no_image_dir.glob("*_read_breadth_no_image_score_v1.json")):
+        score = json.loads(path.read_text())
+        if score.get("status") != "verified_complete":
+            raise RuntimeError(f"Incomplete Read no-image result: {path}")
+        verification = score["verification"]
+        stability = score["finding_level_stability"]
+        analytic = score["analytic_expected_metrics"]
+        image = score["image_comparison"]
+        read_no_image.append({
+            "model": model_name(score["model"]),
+            "calls": verification["n_rows"],
+            "findings": verification["n_findings"],
+            "repeats": verification["repeat_counts"][0],
+            "fullyStable": stability["n_fully_stable"],
+            "flipping": stability["n_flipping"],
+            "alwaysPresent": stability["n_always_present"],
+            "alwaysAbsent": stability["n_always_absent"],
+            "agreement": stability["mean_repeat_agreement"],
+            "entropy": stability["mean_binary_entropy_bits"],
+            "noImageMacroBA": analytic["macro_balanced_accuracy"],
+            "imageMacroBA": image["image_macro_balanced_accuracy"],
+            "imageGain": image["image_minus_no_image_macro_balanced_accuracy"],
+            "scoreSha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        })
+    if len(read_no_image) != 4:
+        raise RuntimeError(f"Expected four Read no-image results, found {len(read_no_image)}")
     qwen_overall.update(
         {
             "microBA": qwen_final["micro_balanced_accuracy"],
@@ -641,7 +671,33 @@ def main() -> None:
                 "n": number(row["n"]),
                 "macroBA": number(row["macro_balanced_accuracy"]),
             }
-        )
+            )
+
+    compare_no_image = []
+    compare_no_image_dir = RESULTS / "standalone_operation_outputs_v1/compare/no_image_v1"
+    for path in sorted(compare_no_image_dir.glob("*_compare_no_image_score_v1.json")):
+        score = json.loads(path.read_text())
+        if score.get("status") != "verified_complete":
+            raise RuntimeError(f"Incomplete Compare no-image result: {path}")
+        verification = score["verification"]
+        if verification["n_rows"] != 2462 or verification["n_failed"] or verification["n_unparseable"]:
+            raise RuntimeError(f"Invalid Compare no-image verification: {path}")
+        question = score["arm_metrics"]["question_only"]
+        prior = score["arm_metrics"]["prior_state_only"]
+        image = score["existing_image_condition"]
+        compare_no_image.append({
+            "model": model_name(score["model"]),
+            "transitions": score["cohort"]["n_transitions"],
+            "patients": score["cohort"]["n_patients"],
+            "questionOnly": question["macro_balanced_accuracy"],
+            "priorStateOnly": prior["macro_balanced_accuracy"],
+            "withImages": image["macro_balanced_accuracy"],
+            "questionPredictionDistribution": question["prediction_distribution"],
+            "priorPredictionDistribution": prior["prediction_distribution"],
+            "scoreSha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        })
+    if len(compare_no_image) != 4:
+        raise RuntimeError(f"Expected four Compare no-image results, found {len(compare_no_image)}")
 
     janus_compare_path = (
         RESULTS
@@ -914,8 +970,9 @@ def main() -> None:
             "domain": read_domain,
             "consistency": consistency,
             "depth": depth,
+            "noImage": read_no_image,
         },
-        "compare": {"overall": compare, "perFinding": compare_findings},
+        "compare": {"overall": compare, "perFinding": compare_findings, "noImage": compare_no_image},
         "predict": predict,
         "predictPanels": predict_panels,
         "conclude": conclude,

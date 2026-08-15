@@ -25,8 +25,8 @@ type Data = {
   dataset: Record<string, number | string[]>;
   models: { name: string; family: string; organization: string }[];
   assess: { organVisibility: AnyRow[]; organPerModel: AnyRow[]; phase: PhaseRow[] };
-  read: { breadth: AnyRow[]; breadthOverall: AnyRow[]; domain: AnyRow[]; consistency: AnyRow[]; depth: AnyRow[] };
-  compare: { overall: AnyRow[]; perFinding: AnyRow[] };
+  read: { breadth: AnyRow[]; breadthOverall: AnyRow[]; domain: AnyRow[]; consistency: AnyRow[]; depth: AnyRow[]; noImage: AnyRow[] };
+  compare: { overall: AnyRow[]; perFinding: AnyRow[]; noImage: AnyRow[] };
   predict: AnyRow[];
   predictPanels: { id:string; group:string; title:string; input:string; cohort:string; baseline:number; rows:AnyRow[] }[];
   conclude: AnyRow[];
@@ -508,10 +508,21 @@ function ReadPanel({ data }: { data: Data }) {
   const consistencyModels=Array.from(new Set(data.read.consistency.map(r=>String(r.model))));
   const overall=data.read.consistency.find(r=>r.model===model&&r.target==="overall");
   return <div className="task-panel"><div className="panel-copy"><div><span className="task-number">02</span><h2>Read</h2><p>What findings are present, where are they, and do they survive a change in wording?</p></div><Tabs items={["Breadth","Prompt stability","Localization"]} active={mode} setActive={setMode}/></div><OperationExamples cases={READ_EXAMPLES}/>
-    {mode==="Breadth"&&<><div className="result-layout read-headline"><div className="chart-card"><h3>179-finding macro balanced accuracy</h3><BarList rows={[...data.read.breadthOverall].sort((a,b)=>num(b.macroBA)-num(a.macroBA))} metric="macroBA" max={.75}/></div><aside className="insight"><Eyebrow>Finding vocabulary</Eyebrow><h3>No model exceeds 0.67.</h3><p>Performance varies by morphology and organ system. The interactive figure below opens every finding-level result.</p></aside></div><ReadFindingAtlas data={data}/></>}
+    {mode==="Breadth"&&<><div className="result-layout read-headline"><div className="chart-card"><h3>179-finding macro balanced accuracy</h3><BarList rows={[...data.read.breadthOverall].sort((a,b)=>num(b.macroBA)-num(a.macroBA))} metric="macroBA" max={.75}/></div><aside className="insight"><Eyebrow>Finding vocabulary</Eyebrow><h3>No model exceeds 0.67.</h3><p>Performance varies by morphology and organ system. The interactive figure below opens every finding-level result.</p></aside></div><ReadFindingAtlas data={data}/><ReadNoImageAudit rows={data.read.noImage}/></>}
     {mode==="Prompt stability"&&<div className="result-layout"><div className="chart-card"><div className="chart-toolbar"><h3>Same evidence, three questions</h3><select value={model} onChange={e=>setModel(e.target.value)}>{consistencyModels.map(m=><option key={m}>{m}</option>)}</select></div>{overall&&<><div className="stacked-big"><i className="agree" style={{width:`${num(overall.agree)*100}%`}}><span>{pct(num(overall.agree))} agree</span></i><i className="conflict" style={{width:`${num(overall.conflict)*100}%`}}><span>{pct(num(overall.conflict))} conflict</span></i><i className="incomplete" style={{width:`${num(overall.incomplete)*100}%`}}><span>{pct(num(overall.incomplete))} incomplete</span></i></div><div className="consistency-grid">{data.read.consistency.filter(r=>r.model===model&&r.target!=="overall").map(r=><div key={String(r.target)}><b>{String(r.target).replaceAll("_"," ")}</b><span>{pct(num(r.agree))} stable</span><i><em style={{width:`${num(r.agree)*100}%`}}/></i></div>)}</div></>}</div><aside className="insight"><Eyebrow>Prompt dependence</Eyebrow><h3>A correct binary answer may disappear in a report-like prompt.</h3><p>Agreement, direct contradiction, and omission are separated rather than collapsed into one score.</p></aside></div>}
     {mode==="Localization"&&<div className="result-layout"><div className="chart-card localization"><h3>Detection → location → joint success</h3>{[...data.read.depth].sort((a,b)=>num(b.joint)-num(a.joint)).map(r=><div className="local-row" key={String(r.model)}><strong><ModelName name={String(r.model)}/></strong><div><i className="detect" style={{width:`${num(r.detection)*100}%`}}/><i className="locate" style={{width:`${num(r.conditionalLocation)*100}%`}}/><i className="joint" style={{width:`${num(r.joint)*100}%`}}/></div><span>{pct(num(r.joint))}</span></div>)}</div><aside className="insight"><Eyebrow>Depth gap</Eyebrow><h3>Naming is not placing.</h3><p>The best detection sensitivity is 87.7%, but the best joint detection-and-location result is 39.7%.</p></aside></div>}
   </div>;
+}
+
+function ReadNoImageAudit({ rows }: { rows: AnyRow[] }) {
+  const [selected,setSelected]=useState(String(rows[0]?.model||""));
+  const active=rows.find(row=>String(row.model)===selected)||rows[0];
+  return <section className="evidence-audit read-no-image-audit">
+    <header><div><Eyebrow>Visual-evidence audit</Eyebrow><h3>Remove the CT: every model falls to 0.500.</h3></div><p>Each unique finding question was repeated 10 times. Repeats measure response stability—not additional examinations.</p></header>
+    <div className="audit-workspace"><div className="audit-rows">{rows.map(row=>{const name=String(row.model),activeRow=name===selected;return <button type="button" aria-pressed={activeRow} className={activeRow?"active":""} onClick={()=>setSelected(name)} key={name} style={{"--model-color":modelColor(name)} as React.CSSProperties}><ModelName name={name}/><span className="audit-comparison"><i className="no-image" style={{width:`${num(row.noImageMacroBA)*100}%`}}/><i className="with-image" style={{width:`${num(row.imageMacroBA)*100}%`}}/></span><b>{num(row.noImageMacroBA).toFixed(3)}</b><strong>{num(row.imageMacroBA).toFixed(3)}</strong></button>})}<div className="audit-legend"><span><i className="no-image"/>finding name only</span><span><i className="with-image"/>with CT</span><em>macro balanced accuracy</em></div></div>
+      <aside>{active&&<><small>Selected model</small><ModelName name={String(active.model)}/><dl><div><dt>Stable prompts</dt><dd>{active.fullyStable}/{active.findings}</dd></div><div><dt>Always “present”</dt><dd>{active.alwaysPresent}/{active.findings}</dd></div><div><dt>Image gain</dt><dd>+{(num(active.imageGain)*100).toFixed(1)} pp</dd></div><div><dt>Calls</dt><dd>{Number(active.calls).toLocaleString()}</dd></div></dl><p>All 179 questions were deterministic across ten repeats. Without an examination, the output becomes a fixed disease prior.</p></>}</aside>
+    </div>
+  </section>;
 }
 
 const COMPARE_FINDINGS = [
@@ -609,7 +620,24 @@ function ComparePanel({ data }: { data: Data }) {
       </div>
       <div className="compare-baseline-explainer"><div><Eyebrow>Why 0.400 is a hard baseline</Eyebrow><h3>The rule never opens the current CT.</h3></div><div className="baseline-flow"><span><small>Prior state</small><b>finding present</b></span><i>→</i><span><small>Rule answers</small><b>stable</b></span><em>or</em><span><small>Prior state</small><b>finding absent</b></span><i>→</i><span><small>Rule answers</small><b>new</b></span></div><p>Every model sees both examinations, yet every confidence interval remains below this prior-only rule. Janus-Pro-7B (*) uses a separate 551-transition, 415-patient cohort. It predicts stable in 536 cases: macro BA 0.2003 is indistinguishable from always stable (0.2000) and below the previous-state rule (0.4000).</p></div>
     </section>
+    <CompareNoImageAudit rows={data.compare.noImage}/>
   </div>;
+}
+
+function CompareNoImageAudit({ rows }: { rows: AnyRow[] }) {
+  const [selected,setSelected]=useState("Hulu-Med-32B");
+  const active=rows.find(row=>String(row.model)===selected)||rows[0];
+  const conditions=[
+    ["questionOnly","Question only","#B7BEC3"],
+    ["priorStateOnly","Prior state only","#E69F00"],
+    ["withImages","Prior + current CT","#0072B2"],
+  ] as const;
+  return <section className="evidence-audit compare-no-image-audit">
+    <header><div><Eyebrow>Visual-evidence audit</Eyebrow><h3>Prior-state language can outperform opening both CTs.</h3></div><p>The same 1,231 transitions are tested with no evidence, prior state only, and the original image pair.</p></header>
+    <div className="compare-audit-grid"><div className="compare-audit-chart"><div className="compare-audit-axis"><span>0.0</span><span>0.2</span><span>0.4</span><span>0.5</span></div>{rows.map(row=>{const name=String(row.model),activeRow=name===selected;return <button type="button" aria-pressed={activeRow} className={activeRow?"active":""} onClick={()=>setSelected(name)} key={name}><ModelName name={name}/><span>{conditions.map(([key,label,color])=><i key={key} style={{left:`${num(row[key])*200}%`,background:color}}><em>{label}: {num(row[key]).toFixed(3)}</em></i>)}</span></button>})}<div className="compare-audit-key">{conditions.map(([,label,color])=><span key={label}><i style={{background:color}}/>{label}</span>)}</div></div>
+      <aside style={{"--model-color":modelColor(String(active?.model))} as React.CSSProperties}>{active&&<><small>Selected model</small><ModelName name={String(active.model)}/><dl>{conditions.map(([key,label])=><div key={key}><dt>{label}</dt><dd>{num(active[key]).toFixed(3)}</dd></div>)}</dl><p>{num(active.priorStateOnly)>=.4?"The prior-state-only response reaches the 0.400 previous-state rule.":"Even the prior state does not recover the 0.400 rule."}</p></>}</aside>
+    </div>
+  </section>;
 }
 
 function PredictPanel({ data }: { data: Data }) {
