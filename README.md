@@ -14,6 +14,14 @@ python3 scripts/build_site_data.py
 
 The builder reads the canonical artifacts under `docs/results/` and writes `public/data/benchmark.json`. It does not recompute scientific metrics.
 
+### Read cohort policy
+
+The public Read leaderboard defaults to the original frozen cohort: 14,832
+finding–examination items for full-cohort endpoints, while GPT-5.5 and Claude
+Opus 4.8 retain their original 2,606-item audit. The later 16,532-item
+minimum-support expansion is preserved for future opt-in analyses in
+[`TMI-2026-Med-Reasoning/docs/results/read_breadth_min20_repair`](https://github.com/MrGiovanni/TMI-2026-Med-Reasoning/tree/main/docs/results/read_breadth_min20_repair).
+
 ## Visual and image provenance
 
 - The paper plotting implementations under `world_model_benchmark/figures/` are the authority for model families, model colors, metric direction, and finding order. `fig_read_results/` is the reference for the assembled Read figure.

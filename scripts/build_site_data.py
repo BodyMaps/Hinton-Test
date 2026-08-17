@@ -313,78 +313,25 @@ def main() -> None:
                 }
             )
 
-    # Replace the frozen 14,832-item cells for every model in the verified
-    # common-15 merge with its expanded 16,532-item, 179-finding result.
-    # Models outside this released merge retain their original cohort.
-    expanded_dir = RESULTS / "read_breadth_min20_repair/merged_common15"
-    expanded_summary = {
-        row["model"]: row for row in rows(expanded_dir / "per_model_summary.csv")
-    }
-    expanded_cells = {
-        (row["model"], row["finding"]): row
-        for row in rows(expanded_dir / "per_model_per_finding.csv")
-    }
-    expanded_models = set(expanded_summary)
-    for item in breadth:
-        key = (item["model"], item["findingId"])
-        if key not in expanded_cells:
-            continue
-        final_cell = expanded_cells[key]
-        n_per_class = int(final_cell["new_n_per_class"])
-        item.update(
-            {
-                "cohort": "expanded min-20 cohort",
-                "n": 2 * n_per_class,
-                "positive": n_per_class,
-                "negative": n_per_class,
-                "ba": float(final_cell["new_balanced_accuracy"]),
-                # The released common-15 merge reports final per-finding BA,
-                # not the two directional rates. Do not retain stale rates.
-                "sensitivity": None,
-                "specificity": None,
-            }
-        )
-    for name, summary in expanded_summary.items():
-        model_rows = [row for row in breadth if row["model"] == name]
-        if len(model_rows) != 179 or sum(int(row["n"]) for row in model_rows) != 16532:
-            raise RuntimeError(f"{name} expanded cohort does not match 179 findings / 16,532 items")
-        macro = sum(float(row["ba"]) for row in model_rows) / len(model_rows)
-        if abs(macro - float(summary["new_macro_balanced_accuracy"])) > 1e-12:
-            raise RuntimeError(f"{name} expanded per-finding rows do not match final macro BA")
-
-    # Janus-Pro-7B was evaluated after the paper figure source was frozen.
-    # Reconstruct its final 179-finding cells from the verified base and repair
-    # artifacts using the same merge rule as the common-16 summary: replace
-    # pulmonary edema, add the balanced minimum-support cases, then recompute.
-    janus_dir = RESULTS / "read_breadth_min20_repair/janus_pro_7b"
-    janus_base = json.loads((janus_dir / "base_score.json").read_text())
-    janus_repair = json.loads((janus_dir / "repair_score.json").read_text())
-    janus_final = json.loads((janus_dir / "merged_score.json").read_text())
-    if not janus_base.get("complete") or not janus_repair.get("complete"):
-        raise RuntimeError("Janus-Pro-7B Read-breadth artifacts are incomplete")
-    additive = janus_repair["branches"]["additive"]["per_finding"]
-    pulmonary = janus_repair["branches"]["pulmonary_replacement"]["per_finding"]
+    # The public Read panel intentionally uses the original frozen cohort,
+    # before the later minimum-support expansion. Janus-Pro-7B and Qwen3-VL-8B
+    # were added after the original figure source was frozen, so reconstruct
+    # their cells from their verified 14,832-item base artifacts only.
     finding_meta = {}
     for item in breadth:
         finding_meta.setdefault(item["findingId"], item)
-    janus_rows = []
-    for finding_id, base_metric in janus_base["per_finding"].items():
-        if finding_id == "pulmonary_edema":
-            metric = dict(pulmonary[finding_id])
-        else:
-            metric = dict(base_metric)
-            if finding_id in additive:
-                for key in ("n", "n_positive", "n_negative", "tp", "fn", "tn", "fp"):
-                    metric[key] = int(metric[key]) + int(additive[finding_id][key])
-                metric["sensitivity"] = metric["tp"] / metric["n_positive"]
-                metric["specificity"] = metric["tn"] / metric["n_negative"]
-                metric["balanced_accuracy"] = (metric["sensitivity"] + metric["specificity"]) / 2
-        meta = finding_meta[finding_id]
-        janus_rows.append(
-            {
-                "model": "DeepSeek-Janus-Pro-7B",
+
+    def late_original_rows(name: str, score_path: Path) -> tuple[list[dict], dict]:
+        score = json.loads(score_path.read_text())
+        if not score.get("complete"):
+            raise RuntimeError(f"{name} original Read artifact is incomplete")
+        model_rows = []
+        for finding_id, metric in score["per_finding"].items():
+            meta = finding_meta[finding_id]
+            model_rows.append({
+                "model": name,
                 "family": "generative",
-                "cohort": "frozen common cohort + minimum-support repair",
+                "cohort": "original frozen cohort",
                 "findingId": finding_id,
                 "finding": meta["finding"],
                 "organId": meta["organId"],
@@ -396,56 +343,23 @@ def main() -> None:
                 "ba": metric["balanced_accuracy"],
                 "sensitivity": metric["sensitivity"],
                 "specificity": metric["specificity"],
-            }
-        )
-    if len(janus_rows) != 179 or sum(row["n"] for row in janus_rows) != 16532:
-        raise RuntimeError("Janus-Pro-7B final cohort does not match 179 findings / 16,532 items")
-    janus_macro = sum(row["ba"] for row in janus_rows) / len(janus_rows)
-    if abs(janus_macro - janus_final["macro_balanced_accuracy"]) > 1e-12:
-        raise RuntimeError("Janus-Pro-7B per-finding reconstruction does not match final macro BA")
-    breadth.extend(janus_rows)
+            })
+        macro = sum(float(row["ba"]) for row in model_rows) / len(model_rows)
+        if len(model_rows) != 179 or sum(int(row["n"]) for row in model_rows) != 14832:
+            raise RuntimeError(f"{name} original cohort does not match 179 findings / 14,832 items")
+        if abs(macro - float(score["macro_balanced_accuracy"])) > 1e-12:
+            raise RuntimeError(f"{name} original per-finding rows do not match its macro BA")
+        return model_rows, score
 
-    # Qwen3-VL-8B was completed on the same expanded minimum-support cohort.
-    # Its final artifact already contains the merged 179-finding cells, so use
-    # those directly and pin the released score hash before publishing them.
+    janus_dir = RESULTS / "read_breadth_min20_repair/janus_pro_7b"
+    janus_rows, janus_base = late_original_rows(
+        "DeepSeek-Janus-Pro-7B", janus_dir / "base_score.json"
+    )
     qwen_dir = RESULTS / "read_breadth_min20_repair/qwen3_vl_8b"
-    qwen_score_path = qwen_dir / "merged_score.json"
-    qwen_expected_sha256 = "8ddf5545662bfbbccb5ecd8298a7a6a1d253d0a33ce6afd30cfc1ecbbac03da6"
-    if hashlib.sha256(qwen_score_path.read_bytes()).hexdigest() != qwen_expected_sha256:
-        raise RuntimeError("Qwen3-VL-8B final score hash does not match the released artifact")
-    qwen_final = json.loads(qwen_score_path.read_text())
-    qwen_rows = []
-    for row in rows(qwen_dir / "per_finding_final.csv"):
-        qwen_rows.append(
-            {
-                "model": "Qwen3-VL-8B",
-                "family": "generative",
-                "cohort": row["evaluation_condition"],
-                "findingId": row["finding_id"],
-                "finding": row["finding_label"],
-                "organId": row["organ_group"],
-                "organ": row["organ_label"],
-                "n": number(row["n_items"]),
-                "positive": number(row["n_positive"]),
-                "negative": number(row["n_negative"]),
-                "datasetPositive": full_finding_counts[row["finding_id"]],
-                "ba": number(row["balanced_accuracy"]),
-                "sensitivity": number(row["sensitivity"]),
-                "specificity": number(row["specificity"]),
-            }
-        )
-    qwen_macro = sum(float(row["ba"]) for row in qwen_rows) / len(qwen_rows)
-    qwen_sensitivity = _weighted_rate(qwen_rows, "sensitivity", "positive")
-    qwen_specificity = _weighted_rate(qwen_rows, "specificity", "negative")
-    if len(qwen_rows) != 179 or sum(int(row["n"]) for row in qwen_rows) != 16532:
-        raise RuntimeError("Qwen3-VL-8B final cohort does not match 179 findings / 16,532 items")
-    if abs(qwen_macro - qwen_final["macro_balanced_accuracy_179"]) > 1e-12:
-        raise RuntimeError("Qwen3-VL-8B per-finding rows do not match final macro BA")
-    if abs(float(qwen_sensitivity) - qwen_final["micro_sensitivity"]) > 1e-12:
-        raise RuntimeError("Qwen3-VL-8B per-finding rows do not match final sensitivity")
-    if abs(float(qwen_specificity) - qwen_final["micro_specificity"]) > 1e-12:
-        raise RuntimeError("Qwen3-VL-8B per-finding rows do not match final specificity")
-    breadth.extend(qwen_rows)
+    qwen_rows, qwen_base = late_original_rows(
+        "Qwen3-VL-8B", qwen_dir / "base_score.json"
+    )
+    breadth.extend(janus_rows + qwen_rows)
     breadth_by_model: dict[str, list[float]] = defaultdict(list)
     breadth_rows_by_model: dict[str, list[dict]] = defaultdict(list)
     for row in breadth:
@@ -457,8 +371,6 @@ def main() -> None:
     }
 
     def overall_rate(name: str, metric: str, weight: str) -> float | None:
-        if name in expanded_models:
-            return _weighted_rate(breadth_rows_by_model[name], metric, weight)
         reported = number(common_read.get(name, {}).get(metric))
         if reported is not None:
             return reported
@@ -478,7 +390,6 @@ def main() -> None:
         for name, values in breadth_by_model.items()
     ]
     breadth_overall.sort(key=lambda item: item["macroBA"], reverse=True)
-    qwen_overall = next(item for item in breadth_overall if item["model"] == "Qwen3-VL-8B")
 
     read_no_image = []
     read_no_image_dir = RESULTS / "standalone_operation_outputs_v1/read/no_image_repeat10_v1"
@@ -508,17 +419,12 @@ def main() -> None:
         })
     if len(read_no_image) != 4:
         raise RuntimeError(f"Expected four Read no-image results, found {len(read_no_image)}")
-    qwen_overall.update(
-        {
-            "microBA": qwen_final["micro_balanced_accuracy"],
-            "comparableRank": 12,
-            "comparableN": 17,
-            "findingsAtLeast20PerClass": qwen_final["findings_at_least_20_per_class"],
-            "findingsBelow20PerClass": len(qwen_final["findings_below_20_per_class"]),
-            "scoreSha256": qwen_expected_sha256,
-        }
-    )
-
+    original_read_overall = {row["model"]: row for row in breadth_overall}
+    for row in read_no_image:
+        original_image = original_read_overall[row["model"]]["macroBA"]
+        row["imageMacroBA"] = original_image
+        row["imageGain"] = original_image - row["noImageMacroBA"]
+        row["imageComparisonCohort"] = "original frozen cohort"
     read_domain = []
     for path, family in (
         (ROOT / "paper/figures/results/read_breadth_domain_radar_source.csv", "generative"),
@@ -537,12 +443,8 @@ def main() -> None:
                 }
             )
 
-    # The paper-aligned domain file predates the expanded cohort. Remove its
-    # common-15 rows and regenerate those profiles from the final cells below.
-    read_domain = [row for row in read_domain if row["model"] not in expanded_models]
-
-    # Add expanded-cohort clinical-category profiles over the same routed 170
-    # findings used by the paper-aligned chest/abdomen panel.
+    # Add original-cohort clinical-category profiles for the two late models
+    # over the same routed 170 findings used by the paper-aligned panel.
     cardiac = {
         "aortic_valve_calcification", "cardiomegaly", "coronary_artery_calcification",
         "coronary_atherosclerosis", "coronary_bypass_graft", "ischemic_heart_disease",
@@ -583,13 +485,11 @@ def main() -> None:
         "vascular": "Vascular", "device": "Devices", "musculoskeletal": "Musculoskeletal",
     }
     routes = rows(RESULTS / "encoder_ground_breadth/pillar0_zero_shot_per_finding.csv")
-    expanded_domain_sources = [
-        (name, breadth_rows_by_model[name]) for name in sorted(expanded_models)
-    ] + [
+    late_domain_sources = [
         ("DeepSeek-Janus-Pro-7B", janus_rows),
         ("Qwen3-VL-8B", qwen_rows),
     ]
-    for domain_model, domain_source_rows in expanded_domain_sources:
+    for domain_model, domain_source_rows in late_domain_sources:
         by_finding = {row["findingId"]: row for row in domain_source_rows}
         grouped: dict[tuple[str, str], list[float]] = defaultdict(list)
         for route in routes:
@@ -965,6 +865,12 @@ def main() -> None:
         "models": model_payload,
         "assess": {"organVisibility": organ_visibility, "organPerModel": organ_per_model, "phase": phase},
         "read": {
+            "cohort": {
+                "version": "original_frozen",
+                "fullCohortItems": 14832,
+                "findings": 179,
+                "expandedResultsPreservedAt": "docs/results/read_breadth_min20_repair/",
+            },
             "breadth": breadth,
             "breadthOverall": breadth_overall,
             "domain": read_domain,
