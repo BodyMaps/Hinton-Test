@@ -63,7 +63,9 @@ const assetPath = (path: string) => `${BASE_PATH}${path}`;
 function useData() {
   const [data, setData] = useState<Data | null>(null);
   useEffect(() => {
-    fetch(assetPath("/data/benchmark.json")).then((r) => r.json()).then(setData);
+    fetch(assetPath("/data/benchmark.json?v=original-read-14832-20260817"), { cache: "no-store" })
+      .then((r) => r.json())
+      .then(setData);
   }, []);
   return data;
 }
