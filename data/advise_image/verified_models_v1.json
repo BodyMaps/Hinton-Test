@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "radworld-website-advise-image-extensions-v1",
+  "cohort": {
+    "cases": 80,
+    "patients": 80,
+    "guidelineFamilies": 4,
+    "manifestSha256": "9a63261c09461cdece2a313ac4d5e567760c989cd965c7aa135f671064d3d447"
+  },
+  "models": [
+    {
+      "model": "GPT-5.5",
+      "n": 80,
+      "followUp": 17,
+      "noImaging": 34,
+      "notApplicable": 14,
+      "insufficient": 15,
+      "unparseable": 0,
+      "intentAgreement": 0.2,
+      "exactActionAgreement": 0.1125,
+      "perFamily": {
+        "incidental_pulmonary_nodule": {"followUp": 2, "noImaging": 6, "other": 12, "n": 20},
+        "incidental_pancreatic_cyst": {"followUp": 6, "noImaging": 9, "other": 5, "n": 20},
+        "incidental_renal_mass": {"followUp": 4, "noImaging": 13, "other": 3, "n": 20},
+        "incidental_liver_lesion": {"followUp": 5, "noImaging": 6, "other": 9, "n": 20}
+      },
+      "predictionsSha256": "a81774abeec8592582db9eacc26c1ef31451a3e130149654dda8406add319b7e",
+      "scoreSha256": "c284255e2ea08c7b4f6c9cf5977cfaa9809efb26d2338c47d7905a6ab30c7875"
+    },
+    {
+      "model": "Hulu-Med-32B",
+      "n": 80,
+      "followUp": 60,
+      "noImaging": 15,
+      "notApplicable": 5,
+      "insufficient": 0,
+      "unparseable": 0,
+      "intentAgreement": 0.7375,
+      "exactActionAgreement": 0.225,
+      "perFamily": {
+        "incidental_pulmonary_nodule": {"followUp": 15, "noImaging": 0, "other": 5, "n": 20},
+        "incidental_pancreatic_cyst": {"followUp": 10, "noImaging": 10, "other": 0, "n": 20},
+        "incidental_renal_mass": {"followUp": 20, "noImaging": 0, "other": 0, "n": 20},
+        "incidental_liver_lesion": {"followUp": 15, "noImaging": 5, "other": 0, "n": 20}
+      },
+      "predictionsSha256": "d17f0aabdac943b7d45cfe20992d6894645f9b853ec728aa97866dccd09c8a5c",
+      "scoreSha256": "0f830cf177cfe3e38184d9b8149a345f2782badbaa98e593f5410d80ad1d0808"
+    }
+  ]
+}

@@ -26,3 +26,17 @@ test("exports portable data and image assets", async () => {
   const home = await readFile(new URL("../out/index.html", import.meta.url), "utf8");
   assert.match(home, /https:\/\/mrgiovanni\.github\.io\/Hinton-Test\/og\.png/);
 });
+
+test("publishes verified GPT-5.5 and Hulu Advise image results", async () => {
+  const payload = JSON.parse(
+    await readFile(new URL("../out/data/benchmark.json", import.meta.url), "utf8"),
+  );
+  const advise = new Map(payload.advise.map((row) => [row.model, row]));
+
+  assert.equal(advise.get("GPT-5.5")?.n, 80);
+  assert.equal(advise.get("GPT-5.5")?.followUp, 17);
+  assert.equal(advise.get("GPT-5.5")?.intentAgreement, 0.2);
+  assert.equal(advise.get("Hulu-Med-32B")?.n, 80);
+  assert.equal(advise.get("Hulu-Med-32B")?.followUp, 60);
+  assert.equal(advise.get("Hulu-Med-32B")?.intentAgreement, 0.7375);
+});

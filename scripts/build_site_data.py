@@ -59,7 +59,9 @@ ALIASES = {
     "healthgpt": "HealthGPT-Pro-8B",
     "qwen": "Qwen3.5-27B",
     "gpt55": "GPT-5.5",
+    "gpt-5.5-2026-04-24": "GPT-5.5",
     "claude_opus48": "Claude Opus 4.8",
+    "us.anthropic.claude-opus-4-8": "Claude Opus 4.8",
     "GPT-5.5": "GPT-5.5",
     "Opus 4.8": "Claude Opus 4.8",
     "Claude Opus 4.8": "Claude Opus 4.8",
@@ -74,8 +76,11 @@ ALIASES = {
     "Lingshu-I-8B": "Lingshu-I-8B",
     "HealthGPT": "HealthGPT-Pro-8B",
     "HealthGPT-Pro-8B": "HealthGPT-Pro-8B",
+    "lintw/HealthGPT-Pro-8B": "HealthGPT-Pro-8B",
     "Hulu-Med": "Hulu-Med-32B",
     "Hulu-Med-32B": "Hulu-Med-32B",
+    "ZJU-AI4H/Hulu-Med-32B": "Hulu-Med-32B",
+    "lingshu-medical-mllm/Lingshu-I-8B": "Lingshu-I-8B",
     "OmniCT-native": "OmniCT-7B native",
     "OmniCT-7B-native": "OmniCT-7B native",
     "OmniCT-7B native": "OmniCT-7B native",
@@ -574,30 +579,36 @@ def main() -> None:
             )
 
     compare_no_image = []
+    compare_by_model = {row["model"]: row for row in compare}
     compare_no_image_dir = RESULTS / "standalone_operation_outputs_v1/compare/no_image_v1"
     for path in sorted(compare_no_image_dir.glob("*_compare_no_image_score_v1.json")):
         score = json.loads(path.read_text())
         if score.get("status") != "verified_complete":
             raise RuntimeError(f"Incomplete Compare no-image result: {path}")
         verification = score["verification"]
-        if verification["n_rows"] != 2462 or verification["n_failed"] or verification["n_unparseable"]:
+        failed = verification.get("n_failed", verification.get("n_transport_failures", 0))
+        if verification["n_rows"] != 2462 or failed:
             raise RuntimeError(f"Invalid Compare no-image verification: {path}")
         question = score["arm_metrics"]["question_only"]
         prior = score["arm_metrics"]["prior_state_only"]
-        image = score["existing_image_condition"]
+        if "strict_unparseable_counted_incorrect" in question:
+            question = question["strict_unparseable_counted_incorrect"]
+            prior = prior["strict_unparseable_counted_incorrect"]
+        name = model_name(score["model"])
+        image = score.get("existing_image_condition") or compare_by_model[name]
         compare_no_image.append({
-            "model": model_name(score["model"]),
+            "model": name,
             "transitions": score["cohort"]["n_transitions"],
             "patients": score["cohort"]["n_patients"],
             "questionOnly": question["macro_balanced_accuracy"],
             "priorStateOnly": prior["macro_balanced_accuracy"],
-            "withImages": image["macro_balanced_accuracy"],
+            "withImages": image.get("macro_balanced_accuracy", image.get("macroBA")),
             "questionPredictionDistribution": question["prediction_distribution"],
             "priorPredictionDistribution": prior["prediction_distribution"],
             "scoreSha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         })
-    if len(compare_no_image) != 4:
-        raise RuntimeError(f"Expected four Compare no-image results, found {len(compare_no_image)}")
+    if len(compare_no_image) != 6:
+        raise RuntimeError(f"Expected six Compare no-image results, found {len(compare_no_image)}")
 
     janus_compare_path = (
         RESULTS
@@ -833,6 +844,21 @@ def main() -> None:
                 "perFamily": per_family,
             }
         )
+
+    advise_extensions = json.loads(
+        (SITE / "data/advise_image/verified_models_v1.json").read_text()
+    )
+    if advise_extensions["cohort"]["manifestSha256"] != (
+        "9a63261c09461cdece2a313ac4d5e567760c989cd965c7aa135f671064d3d447"
+    ):
+        raise RuntimeError("unexpected Advise extension cohort")
+    existing_advise_models = {row["model"] for row in advise}
+    for row in advise_extensions["models"]:
+        if row["model"] in existing_advise_models:
+            raise RuntimeError(f"duplicate Advise model: {row['model']}")
+        if row["n"] != 80 or sum(item["n"] for item in row["perFamily"].values()) != 80:
+            raise RuntimeError(f"unexpected Advise coverage: {row['model']}")
+        advise.append(row)
 
     integrated = []
     for row in rows(
