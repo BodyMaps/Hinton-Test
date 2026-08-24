@@ -9,7 +9,7 @@ test("exports every public benchmark route for GitHub Pages", async () => {
   for (const route of routes) {
     const path = route ? `../out/${route}/index.html` : "../out/index.html";
     const html = await readFile(new URL(path, import.meta.url), "utf8");
-    assert.match(html, /RADWORLD/);
+    assert.match(html, /Hinton-Test/);
     assert.match(html, new RegExp(`${prefix}/_next/`));
     assert.doesNotMatch(html, /(?:src|href)="\/(?:images|data|_next)\//);
   }
